@@ -1,0 +1,23 @@
+# Dependencies & Build Outputs
+node_modules/
+dist/
+build/
+.output/
+
+# Cache
+.npm/
+.vite/
+.eslintcache
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+
+# IDE & OS Artifacts
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

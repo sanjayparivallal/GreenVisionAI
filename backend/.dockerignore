@@ -1,0 +1,30 @@
+# Python & Virtual Environments
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+
+# ML Large Dataset Cache & Training Logs (preserve weights/greenvision.pt)
+ml/training/data/overflow_hf/.cache/
+ml/training/runs/
+
+# IDE & OS Artifacts
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
