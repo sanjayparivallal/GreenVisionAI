@@ -1,0 +1,6 @@
+# ML training dependencies (run in a separate venv or Colab)
+torch>=2.0.0
+torchvision>=0.15.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+Pillow>=10.0.0

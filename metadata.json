@@ -1,0 +1,10 @@
+{
+  "name": "GreenVision AI",
+  "description": "AI-powered residential waste monitoring & smart municipal management web application.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_VISION_API"
+  ]
+}

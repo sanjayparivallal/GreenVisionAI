@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+backend/venv/
+venv/
+ENV/
+env/
+.venv/
+
+# Environment and Secrets (CRITICAL: Never commit credentials)
+.env
+.env.*
+!.env.example
+*.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build and Bundles
+build/
+dist/
+coverage/
+*.egg-info/
+.eggs/
+
+# Vite / Frontend artifacts
+.vite/
+*.tsbuildinfo
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+*.swp
+*.swo
+
+# AI Studio and local temp caches
+assets/.aistudio/
+backend/ml/training/runs/
+backend/ml/training/data/overflow_hf/.cache/
+
+# Large ML dataset images (keep labels.csv and config; ignore heavy raw images)
+backend/ml/training/data/overflow_hf/*.jpg
+backend/ml/training/data/overflow_hf/*.png
+backend/ml/training/data/overflow_hf/*.jpeg
+
+# Duplicate training checkpoint (keep primary weight in backend/ml/weights/greenvision.pt)
+backend/ml/training/greenvision.pt
