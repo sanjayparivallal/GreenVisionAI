@@ -1,0 +1,69 @@
+services:
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  - name: greenvision-backend
+    type: web
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # Set manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ACCESS_EXPIRE_MINUTES
+        value: "60"
+      - key: JWT_REFRESH_EXPIRE_DAYS
+        value: "30"
+      - key: GEMINI_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: USE_LOCAL_MODEL
+        value: "false"
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOWED_ORIGINS
+        sync: false          # Set to your frontend URL, e.g. https://greenvision-frontend.onrender.com
+      - key: APP_URL
+        sync: false          # Set to your backend URL on Render
+
+  # ── React Frontend ─────────────────────────────────────────────────────────
+  - name: greenvision-frontend
+    type: web
+    runtime: static
+    region: singapore
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-XSS-Protection
+        value: "1; mode=block"
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    routes:
+      # Proxy /api/* to backend service
+      - type: rewrite
+        source: /api/*
+        destination: https://greenvision-backend.onrender.com/api/:splat
+      # SPA fallback
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: /api

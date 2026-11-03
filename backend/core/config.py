@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     environment: str = "development"
 
+    # CORS — comma-separated list of allowed origins for production.
+    # Example: "https://greenvision.onrender.com,https://www.greenvisionai.in"
+    # Leave empty to allow localhost dev origins only.
+    allowed_origins: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
