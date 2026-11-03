@@ -6,6 +6,8 @@ import asyncpg
 
 from core.dependencies import get_db, get_current_user
 from core.security import hash_password, verify_password, generate_tokens, decode_refresh_token
+from core.rate_limit import auth_limiter
+from core.upload_security import validate_image_base64
 from db.queries.users import get_user_by_email, get_user_by_id, create_user, update_user_profile, update_user_password
 from schemas.models import (
     ResidentSignupRequest, AdminSignupRequest, LoginRequest,
@@ -29,7 +31,7 @@ def _user_out(row: asyncpg.Record) -> UserOut:
     )
 
 
-@router.post("/signup/resident", status_code=201, response_model=AuthResponse)
+@router.post("/signup/resident", status_code=201, response_model=AuthResponse, dependencies=[Depends(auth_limiter)])
 async def signup_resident(
     body: ResidentSignupRequest,
     conn: Annotated[asyncpg.Connection, Depends(get_db)],
@@ -58,7 +60,7 @@ async def signup_resident(
     )
 
 
-@router.post("/signup/admin", status_code=201, response_model=AuthResponse)
+@router.post("/signup/admin", status_code=201, response_model=AuthResponse, dependencies=[Depends(auth_limiter)])
 async def signup_admin(
     body: AdminSignupRequest,
     conn: Annotated[asyncpg.Connection, Depends(get_db)],
@@ -87,7 +89,7 @@ async def signup_admin(
     )
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login", response_model=AuthResponse, dependencies=[Depends(auth_limiter)])
 async def login(
     body: LoginRequest,
     conn: Annotated[asyncpg.Connection, Depends(get_db)],
@@ -123,6 +125,10 @@ async def update_me(
     conn: Annotated[asyncpg.Connection, Depends(get_db)],
 ):
     """Update the current user's profile information."""
+    if body.profile_image:
+        # Validate profile image data
+        validate_image_base64(body.profile_image)
+
     updated = await update_user_profile(
         conn,
         user_id=current_user["sub"],

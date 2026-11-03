@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 import asyncpg
 
 from core.dependencies import get_db, get_current_user, require_admin
+from core.rate_limit import report_limiter
+from core.upload_security import validate_image_base64
 from db.pool import get_pool
 from ml.predictor import analyze_waste_image
 from db.queries.reports import (
@@ -18,11 +20,14 @@ from schemas.models import CreateReportRequest, UpdateStatusRequest
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(report_limiter)])
 async def submit_report(
     body: CreateReportRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    # Validate image before sending to ML pipeline
+    validate_image_base64(body.image_base64)
+
     landmark_type = body.landmark_type or "general"
     odor_level = body.odor_level or "normal"
     is_drain_blocked = bool(body.is_drain_blocked)
