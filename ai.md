@@ -134,7 +134,7 @@ Last updated: 2026-08-16 (full codebase scan — all modules, routers, queries, 
 | Table | Key Columns |
 |---|---|
 | `users` | `id, name, email, password_hash, phone, role (admin/resident), address, profile_image, created_at` |
-| `reports` | `id, user_id, image_base64, location_text, lat/lng, waste_type, fill_level, severity_score, environmental_impact_score, priority_level, recommended_action, estimated_waste_kg, status, hidden_for, created_at, updated_at` |
+| `reports` | `id, user_id, image_base64, location_text, lat/lng, waste_type, fill_level, severity_score, environmental_impact_score, priority_level, recommended_action, estimated_waste_kg, landmark_type, odor_level, is_drain_blocked, is_road_blocked, escalation_reason, status, hidden_for, created_at, updated_at` |
 | `collection_schedule` | `id, zone_name, waste_type, collection_date, status (scheduled/completed/delayed), created_by` |
 | `reward_transactions` | `id, user_id, report_id, points, type (earned/redeemed), description, created_at` |
 | `organic_waste_listings` | `id, posted_by, total_kg, available_kg, description, waste_type, pickup_location, available_until, image_base64, status (open/closed), created_at` |
@@ -188,15 +188,21 @@ Last updated: 2026-08-16 (full codebase scan — all modules, routers, queries, 
 
 ---
 
-## AI / ML Layer
+## AI / ML Layer & Multi-Factor Priority Scoring
 
-- **File:** `backend/ml/predictor.py`
-- **Entry point:** `analyze_waste_image(image_base64: str) -> AnalysisResult`
+- **File:** `backend/ml/predictor.py` and `backend/ml/local_model.py`
+- **Entry point:** `analyze_waste_image(image_base64: str, landmark_type: str, odor_level: str, is_drain_blocked: bool, is_road_blocked: bool) -> AnalysisResult`
 - **Routing:** Controlled by `USE_LOCAL_MODEL` in `.env`:
   - `USE_LOCAL_MODEL=true`: Runs local MobileNetV2 dual-head classifier (`backend/ml/weights/greenvision.pt`)
   - `USE_LOCAL_MODEL=false`: Runs cloud vision API via `VISION_KEY`
   - Fallback: Deterministic heuristic (`_fallback_inference()`) if both paths fail/unavailable
-- **Server-side computed:** `severity_score (1–10), environmental_impact_score (10–100), priority_level` — via `_calculate_scores_from_weight()` (deterministic, based on kg + waste_type + fill_level)
+- **Multi-Factor Priority Scoring Engine:**
+  - `_calculate_scores_from_weight()` computes base severity (1–10) from nominal or predicted kg and fill level.
+  - **Vector & Animal Hazard Rule:** Overflowing organic waste triggers $+1.5$ severity and specific pest/vector alert.
+  - **Landmark Proximity:** Hospitals ($+2.0$), Schools/Daycares ($+1.5$), Water Bodies/Drains ($+1.5$), Markets ($+1.0$).
+  - **Odor Intensity:** Severe stench ($+1.5$), Noticeable ($+0.7$).
+  - **Infrastructure Blockage:** Drain blockage ($+1.5$), Road/pedestrian obstruction ($+1.0$).
+  - **Dynamic Stagnation Escalation:** Live computed in SQL on `GET /api/reports` based on elapsed hours ($\ge 24\text{h} \rightarrow \text{high}$, $\ge 48\text{h} \rightarrow \text{critical}$).
 - **Source field:** `AnalysisResult.source = "local"`, `"cloud"`, or `"fallback"` — logged but not stored in DB.
 - **Sanitisers:** `_sanitize_waste_type()` and `_sanitize_fill_level()` normalise free-text output to standard enums.
 

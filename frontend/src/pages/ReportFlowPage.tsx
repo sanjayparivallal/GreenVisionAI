@@ -18,6 +18,10 @@ import {
   Cpu,
   BarChart3,
   Send,
+  Building,
+  Wind,
+  ShieldAlert,
+  Droplets,
 } from 'lucide-react';
 
 // Multi-step AI analysis progress
@@ -88,6 +92,10 @@ export const ReportFlowPage: React.FC = () => {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [locationText, setLocationText] = useState('');
   const [coords, setCoords] = useState<{ lat?: number; lng?: number }>({});
+  const [landmarkType, setLandmarkType] = useState('general');
+  const [odorLevel, setOdorLevel] = useState<'normal' | 'noticeable' | 'severe'>('normal');
+  const [isDrainBlocked, setIsDrainBlocked] = useState(false);
+  const [isRoadBlocked, setIsRoadBlocked] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [submittedReport, setSubmittedReport] = useState<WasteReport | null>(null);
@@ -178,6 +186,10 @@ export const ReportFlowPage: React.FC = () => {
         // Default to 0,0 when GPS not detected (avoids hardcoded SF coordinates)
         latitude: coords.lat ?? 0,
         longitude: coords.lng ?? 0,
+        landmark_type: landmarkType,
+        odor_level: odorLevel,
+        is_drain_blocked: isDrainBlocked,
+        is_road_blocked: isRoadBlocked,
       });
       setSubmittedReport(res.data.report);
       toast.success('Report analyzed and submitted for municipal approval!');
@@ -269,14 +281,6 @@ export const ReportFlowPage: React.FC = () => {
                 <MapPin className="w-4 h-4 text-emerald-400" />
                 Step 2: Enter Precise Location
               </label>
-
-              {/* <button
-                type="button"
-                onClick={detectLocation}
-                className="text-[11px] font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700"
-              >
-                <Navigation className="w-3 h-3" /> Auto Detect GPS
-              </button> */}
             </div>
 
             <input
@@ -287,6 +291,100 @@ export const ReportFlowPage: React.FC = () => {
               placeholder="e.g. 742 Evergreen Terrace, Rear Alleyway Bin #4"
               className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs font-medium placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
+          </div>
+
+          {/* Step 3: Multi-Factor Environmental & Public Hazard Triage */}
+          <div className="space-y-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                Step 3: Hazard &amp; Context Factors (Priority Modifiers)
+              </label>
+              <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                Multi-Factor Triage
+              </span>
+            </div>
+
+            {/* Nearby Landmark */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-teal-400" /> Nearby Landmark / Sensitive Zone
+              </label>
+              <select
+                value={landmarkType}
+                onChange={(e) => setLandmarkType(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs font-medium focus:outline-none focus:border-emerald-500"
+              >
+                <option value="general">General Residential / Commercial Area (Normal)</option>
+                <option value="hospital">🏥 Near Hospital / Healthcare Clinic (+2.0 Critical Health Boost)</option>
+                <option value="school">🏫 Near School / College / Daycare (+1.5 Child Safety Boost)</option>
+                <option value="water_body">🌊 Near Water Canal / Lake / Open Drain (+1.5 Contamination Boost)</option>
+                <option value="market">🛒 Near Commercial Food Market / Bus Terminal (+1.0 Footfall Boost)</option>
+              </select>
+            </div>
+
+            {/* Odor Intensity Pills */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <Wind className="w-3.5 h-3.5 text-cyan-400" /> Odor &amp; Stench Severity (Biological Decay)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { id: 'normal', label: 'Normal / Mild', color: 'border-slate-700 bg-slate-800 text-slate-300' },
+                    { id: 'noticeable', label: 'Noticeable Odor', color: 'border-amber-500/40 bg-amber-500/10 text-amber-300' },
+                    { id: 'severe', label: 'Severe / Toxic Stench', color: 'border-rose-500/40 bg-rose-500/15 text-rose-300' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setOdorLevel(opt.id)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                      odorLevel === opt.id
+                        ? `${opt.color} ring-2 ring-emerald-500 shadow-md`
+                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Urban Hazard Checkboxes */}
+            <div className="space-y-2 pt-1 border-t border-slate-800/60">
+              <span className="text-[11px] font-bold text-slate-400 block">Immediate Urban Hazards:</span>
+              <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/60 cursor-pointer hover:bg-slate-800 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isDrainBlocked}
+                  onChange={(e) => setIsDrainBlocked(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-0"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-slate-200 flex items-center gap-1">
+                    <Droplets className="w-3.5 h-3.5 text-blue-400 inline" /> Blocking storm drain / rainwater gutter
+                  </span>
+                  <p className="text-[11px] text-slate-400">Triggers priority escalation to prevent street waterlogging and flash floods</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/60 cursor-pointer hover:bg-slate-800 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isRoadBlocked}
+                  onChange={(e) => setIsRoadBlocked(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-0"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-slate-200 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 inline" /> Spilling onto vehicle road or pedestrian sidewalk
+                  </span>
+                  <p className="text-[11px] text-slate-400">Triggers road safety alert for street sweepers and vehicular hazard</p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Analyzing Loading Indicator */}
@@ -368,11 +466,35 @@ export const ReportFlowPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
                 <span className="text-xs font-bold text-slate-400">Priority Assigned</span>
                 <span className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
                   {submittedReport.priority_level}
                 </span>
+              </div>
+
+              {/* Context modifiers applied */}
+              <div className="pt-1 flex flex-wrap gap-1.5">
+                {submittedReport.landmark_type && submittedReport.landmark_type !== 'general' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                    Zone: {submittedReport.landmark_type}
+                  </span>
+                )}
+                {submittedReport.odor_level && submittedReport.odor_level !== 'normal' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                    Odor: {submittedReport.odor_level}
+                  </span>
+                )}
+                {submittedReport.is_drain_blocked && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                    Drain Blocked
+                  </span>
+                )}
+                {submittedReport.is_road_blocked && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    Road Blocked
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -403,6 +525,10 @@ export const ReportFlowPage: React.FC = () => {
                 setSubmittedReport(null);
                 setImageBase64(null);
                 setLocationText('');
+                setLandmarkType('general');
+                setOdorLevel('normal');
+                setIsDrainBlocked(false);
+                setIsRoadBlocked(false);
               }}
               className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center justify-center gap-2"
             >

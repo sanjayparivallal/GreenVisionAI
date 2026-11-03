@@ -80,6 +80,10 @@ class CreateReportRequest(BaseModel):
     location_text: str
     latitude: Optional[float] = 0.0
     longitude: Optional[float] = 0.0
+    landmark_type: Optional[str] = "general"
+    odor_level: Optional[str] = "normal"
+    is_drain_blocked: Optional[bool] = False
+    is_road_blocked: Optional[bool] = False
 
 
 class UpdateStatusRequest(BaseModel):

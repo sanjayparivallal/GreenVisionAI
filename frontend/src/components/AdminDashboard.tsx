@@ -379,9 +379,39 @@ export const AdminDashboard: React.FC = () => {
                           {report.priority_level} Priority
                         </span>
 
+                        {report.is_escalated && (
+                          <span className="text-xs font-black px-2.5 py-0.5 rounded-full border bg-rose-600/30 text-rose-200 border-rose-500 flex items-center gap-1 animate-pulse">
+                            <span>⏳</span> {report.escalation_reason || 'Auto-Escalated Stagnant'}
+                          </span>
+                        )}
+
                         <span className="text-xs font-bold text-slate-300 capitalize px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700">
                           {report.waste_type} Waste
                         </span>
+
+                        {report.landmark_type && report.landmark_type !== 'general' && (
+                          <span className="text-xs font-bold text-teal-300 capitalize px-2 py-0.5 rounded-md bg-teal-500/20 border border-teal-500/30">
+                            Zone: {report.landmark_type}
+                          </span>
+                        )}
+
+                        {report.odor_level && report.odor_level !== 'normal' && (
+                          <span className="text-xs font-bold text-rose-300 capitalize px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/30">
+                            Odor: {report.odor_level}
+                          </span>
+                        )}
+
+                        {report.is_drain_blocked && (
+                          <span className="text-xs font-bold text-blue-300 px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/30">
+                            🌊 Drain Blocked
+                          </span>
+                        )}
+
+                        {report.is_road_blocked && (
+                          <span className="text-xs font-bold text-amber-300 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30">
+                            ⚠️ Road Spillage
+                          </span>
+                        )}
 
                         <span className="text-xs font-medium text-slate-400">
                           Fill: <strong className="text-slate-200 capitalize">{report.fill_level}</strong>

@@ -104,18 +104,61 @@ def _load_model() -> GreenVisionNet:
 # Scoring — deterministic, based on fill_level + waste_type (NOT weight-based)
 # ---------------------------------------------------------------------------
 
-def _scores_from_fill(waste_type: str, fill_level: str) -> tuple[float, float, str]:
+def _scores_from_fill(
+    waste_type: str,
+    fill_level: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> tuple[float, float, str, list[str]]:
     """Compute severity_score (1–10), environmental_impact_score (10–100),
-    and priority_level from the predicted fill_level and waste_type."""
+    and priority_level incorporating multi-factor municipal hazards."""
 
     fill_base = {"empty": 1.5, "half-full": 3.5, "full": 6.0, "overflowing": 8.0}
     base = fill_base.get(fill_level, 4.0)
+    alerts: list[str] = []
 
-    # Type modifier
+    # 1. Type & Vector/Animal Attraction Modifier
     if waste_type == "hazardous":
         base += 1.5
-    elif waste_type == "organic" and fill_level in ("full", "overflowing"):
-        base += 0.5
+        alerts.append("HAZMAT: Biohazard/Chemical precautions required")
+    elif waste_type == "organic" and fill_level == "overflowing":
+        base += 1.5
+        alerts.append("VECTOR HAZARD: Rapid organic decay attracting pests & stray animals")
+    elif waste_type == "organic" and fill_level == "full":
+        base += 0.8
+
+    # 2. Nearby Landmark Factor
+    landmark = (landmark_type or "general").lower()
+    if any(k in landmark for k in ("hospital", "clinic", "health")):
+        base += 2.0
+        alerts.append("VULNERABLE ZONE: Hospital/Healthcare facility proximity")
+    elif any(k in landmark for k in ("school", "college", "daycare")):
+        base += 1.5
+        alerts.append("VULNERABLE ZONE: School/Childcare safety perimeter")
+    elif any(k in landmark for k in ("water", "canal", "drain", "lake")):
+        base += 1.5
+        alerts.append("WATER CONTAMINATION: Open water body/drain risk")
+    elif any(k in landmark for k in ("market", "transit", "station")):
+        base += 1.0
+        alerts.append("HIGH EXPOSURE: Commercial market/transit zone")
+
+    # 3. Odor Intensity Factor
+    odor = (odor_level or "normal").lower()
+    if odor == "severe":
+        base += 1.5
+        alerts.append("TOXIC ODOR: Severe anaerobic gas emission")
+    elif odor == "noticeable":
+        base += 0.7
+
+    # 4. Drainage & Roadway Blockage
+    if is_drain_blocked:
+        base += 1.5
+        alerts.append("DRAIN BLOCKAGE: Immediate urban waterlogging/flood risk")
+    if is_road_blocked:
+        base += 1.0
+        alerts.append("TRAFFIC HAZARD: Spill obstructing road/pedestrian walkway")
 
     severity = round(max(1.0, min(10.0, base)), 1)
 
@@ -123,8 +166,13 @@ def _scores_from_fill(waste_type: str, fill_level: str) -> tuple[float, float, s
     impact_base = severity * 9.5 + (12.0 if waste_type == "hazardous" else 0.0)
     env_impact = round(max(10.0, min(100.0, impact_base)), 1)
 
-    # Priority
-    if severity >= 8.5 or (waste_type == "hazardous" and severity >= 6.0):
+    # Priority alignment with risk escalations
+    if (
+        severity >= 8.5
+        or (waste_type == "hazardous" and severity >= 6.0)
+        or (is_drain_blocked and severity >= 7.0)
+        or ("hospital" in landmark and severity >= 7.0)
+    ):
         priority = "critical"
     elif severity >= 6.5:
         priority = "high"
@@ -133,11 +181,11 @@ def _scores_from_fill(waste_type: str, fill_level: str) -> tuple[float, float, s
     else:
         priority = "low"
 
-    return severity, env_impact, priority
+    return severity, env_impact, priority, alerts
 
 
-def _recommended_action(waste_type: str, fill_level: str, priority: str) -> str:
-    """Generate a template-based recommended action string."""
+def _recommended_action(waste_type: str, fill_level: str, priority: str, alerts: list[str] | None = None) -> str:
+    """Generate a template-based recommended action string with hazard directives."""
     urgency = {
         "low": "Schedule routine collection at next available slot.",
         "medium": "Prioritise collection within the current shift.",
@@ -151,15 +199,24 @@ def _recommended_action(waste_type: str, fill_level: str, priority: str) -> str:
         "general": f"Route standard municipal sanitation truck to {fill_level} general waste bin.",
     }
     action = templates.get(waste_type, f"Dispatch municipal team for {fill_level} waste bin.")
-    return f"{action} {urgency.get(priority, urgency['medium'])}"
+    full_action = f"{action} {urgency.get(priority, urgency['medium'])}"
+    if alerts:
+        full_action += f" Directives: {'; '.join(alerts)}."
+    return full_action
 
 
 # ---------------------------------------------------------------------------
 # Public inference function
 # ---------------------------------------------------------------------------
 
-def predict_from_base64(image_base64: str) -> dict:
-    """Run the local GreenVision model on a base64-encoded image.
+def predict_from_base64(
+    image_base64: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> dict:
+    """Run the local GreenVision model on a base64-encoded image with multi-factor scoring.
 
     Returns a dict with keys matching AnalysisResult:
         waste_type, fill_level, estimated_waste_kg,
@@ -191,8 +248,10 @@ def predict_from_base64(image_base64: str) -> dict:
         waste_type = "general"
 
     estimated_kg = NOMINAL_KG.get(fill_level, 12.0)
-    severity, env_impact, priority = _scores_from_fill(waste_type, fill_level)
-    action = _recommended_action(waste_type, fill_level, priority)
+    severity, env_impact, priority, alerts = _scores_from_fill(
+        waste_type, fill_level, landmark_type, odor_level, is_drain_blocked, is_road_blocked
+    )
+    action = _recommended_action(waste_type, fill_level, priority, alerts)
 
     logger.info(
         "[LocalModel] Prediction: waste_type=%s, fill_level=%s, severity=%.1f",

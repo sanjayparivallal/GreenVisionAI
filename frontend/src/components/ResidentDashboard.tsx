@@ -252,14 +252,34 @@ export const ResidentDashboard: React.FC = () => {
 
                   <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${getPriorityBadge(
-                            report.priority_level
-                          )}`}
-                        >
-                          {report.priority_level} priority
-                        </span>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${getPriorityBadge(
+                              report.priority_level
+                            )}`}
+                          >
+                            {report.priority_level} priority
+                          </span>
+
+                          {report.is_escalated && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-rose-600/30 text-rose-200 border-rose-500 animate-pulse">
+                              ⏳ {report.escalation_reason || 'Escalated'}
+                            </span>
+                          )}
+
+                          {report.landmark_type && report.landmark_type !== 'general' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-500/20 text-teal-300 border border-teal-500/30 capitalize">
+                              {report.landmark_type}
+                            </span>
+                          )}
+
+                          {report.is_drain_blocked && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                              🌊 Drain
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-1.5">
                           <span

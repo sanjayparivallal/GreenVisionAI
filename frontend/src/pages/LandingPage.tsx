@@ -105,7 +105,7 @@ export const LandingPage: React.FC = () => {
 
           {/* Main headline */}
           <h1 className="text-3xl md:text-5xl font-heading font-extrabold text-white tracking-tight leading-tight">
-            AI-Powered Residential Waste Monitoring &amp;{' '}
+            AI-Powered  Waste Management &amp;{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
               Smart Municipal Dispatch
             </span>

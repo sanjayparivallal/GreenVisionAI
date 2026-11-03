@@ -37,6 +37,11 @@ async def init_pool() -> None:
                 await conn.execute("""
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS hidden_for TEXT DEFAULT NULL;
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS estimated_waste_kg REAL DEFAULT 0.0;
+                    ALTER TABLE reports ADD COLUMN IF NOT EXISTS landmark_type TEXT DEFAULT 'general';
+                    ALTER TABLE reports ADD COLUMN IF NOT EXISTS odor_level TEXT DEFAULT 'normal';
+                    ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_drain_blocked BOOLEAN DEFAULT FALSE;
+                    ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_road_blocked BOOLEAN DEFAULT FALSE;
+                    ALTER TABLE reports ADD COLUMN IF NOT EXISTS escalation_reason TEXT DEFAULT NULL;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image TEXT DEFAULT '';
                 """)
             logger.info("[DB Pool] Connection pool initialized successfully.")

@@ -23,7 +23,18 @@ async def submit_report(
     body: CreateReportRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    ai_result = await analyze_waste_image(body.image_base64)
+    landmark_type = body.landmark_type or "general"
+    odor_level = body.odor_level or "normal"
+    is_drain_blocked = bool(body.is_drain_blocked)
+    is_road_blocked = bool(body.is_road_blocked)
+
+    ai_result = await analyze_waste_image(
+        body.image_base64,
+        landmark_type=landmark_type,
+        odor_level=odor_level,
+        is_drain_blocked=is_drain_blocked,
+        is_road_blocked=is_road_blocked,
+    )
     waste_type = ai_result.waste_type
     fill_level = ai_result.fill_level
     severity_score = ai_result.severity_score
@@ -53,6 +64,10 @@ async def submit_report(
             recommended_action=recommended_action,
             estimated_waste_kg=estimated_waste_kg,
             status="pending",
+            landmark_type=landmark_type,
+            odor_level=odor_level,
+            is_drain_blocked=is_drain_blocked,
+            is_road_blocked=is_road_blocked,
         )
     return {
         "message": "Report submitted successfully. Awaiting municipal approval.",

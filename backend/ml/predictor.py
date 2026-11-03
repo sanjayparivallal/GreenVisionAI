@@ -59,11 +59,19 @@ def _sanitize_fill_level(l: str) -> str:
 # Deterministic scoring engine (runs on server, not in any model)
 # ---------------------------------------------------------------------------
 
-def _calculate_scores_from_weight(estimated_kg: float, waste_type: str, fill_level: str) -> tuple[float, float, str]:
+def _calculate_scores_from_weight(
+    estimated_kg: float,
+    waste_type: str,
+    fill_level: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> tuple[float, float, str, list[str]]:
     """
     Deterministically computes severity_score (1.0–10.0),
-    environmental_impact_score (10–100), and priority_level strictly
-    based on estimated_waste_kg and waste_type.
+    environmental_impact_score (10–100), and priority_level incorporating
+    multi-factor municipal hazards (landmarks, vector attraction, odor, blockages).
     Guarantees mathematical consistency across all images.
     """
     if estimated_kg < 5.0:
@@ -79,11 +87,48 @@ def _calculate_scores_from_weight(estimated_kg: float, waste_type: str, fill_lev
     else:
         base_severity = min(10.0, 8.5 + ((estimated_kg - 2500.0) / 7500.0) * 1.5) # 8.5–10.0
 
-    # Type & spillage modifiers
+    alerts: list[str] = []
+
+    # 1. Type & Vector/Stray Animal Attraction Modifiers
     if waste_type == "hazardous":
         base_severity += 1.5
-    elif waste_type == "organic" and fill_level in ("full", "overflowing"):
-        base_severity += 0.5
+        alerts.append("HAZMAT: Biohazard/Chemical precautions required")
+    elif waste_type == "organic" and fill_level == "overflowing":
+        base_severity += 1.5
+        alerts.append("VECTOR HAZARD: Rapid organic decay attracting pests & stray animals")
+    elif waste_type == "organic" and fill_level == "full":
+        base_severity += 0.8
+
+    # 2. Nearby Landmark Factor
+    landmark = (landmark_type or "general").lower()
+    if any(k in landmark for k in ("hospital", "clinic", "health")):
+        base_severity += 2.0
+        alerts.append("VULNERABLE ZONE: Hospital/Healthcare facility proximity")
+    elif any(k in landmark for k in ("school", "college", "daycare")):
+        base_severity += 1.5
+        alerts.append("VULNERABLE ZONE: School/Childcare safety perimeter")
+    elif any(k in landmark for k in ("water", "canal", "drain", "lake")):
+        base_severity += 1.5
+        alerts.append("WATER CONTAMINATION: Open water body/drain risk")
+    elif any(k in landmark for k in ("market", "transit", "station")):
+        base_severity += 1.0
+        alerts.append("HIGH EXPOSURE: Commercial market/transit zone")
+
+    # 3. Odor Intensity Factor
+    odor = (odor_level or "normal").lower()
+    if odor == "severe":
+        base_severity += 1.5
+        alerts.append("TOXIC ODOR: Severe anaerobic gas emission")
+    elif odor == "noticeable":
+        base_severity += 0.7
+
+    # 4. Infrastructure Blockage Factors
+    if is_drain_blocked:
+        base_severity += 1.5
+        alerts.append("DRAIN BLOCKAGE: Immediate urban waterlogging/flood risk")
+    if is_road_blocked:
+        base_severity += 1.0
+        alerts.append("TRAFFIC HAZARD: Spill obstructing road/pedestrian walkway")
 
     severity_score = round(max(1.0, min(10.0, base_severity)), 1)
 
@@ -92,7 +137,12 @@ def _calculate_scores_from_weight(estimated_kg: float, waste_type: str, fill_lev
     env_impact = round(max(10.0, min(100.0, impact_base)), 1)
 
     # Priority alignment
-    if severity_score >= 8.5 or (waste_type == "hazardous" and severity_score >= 6.0):
+    if (
+        severity_score >= 8.5
+        or (waste_type == "hazardous" and severity_score >= 6.0)
+        or (is_drain_blocked and severity_score >= 7.0)
+        or ("hospital" in landmark and severity_score >= 7.0)
+    ):
         priority = "critical"
     elif severity_score >= 6.5:
         priority = "high"
@@ -101,17 +151,23 @@ def _calculate_scores_from_weight(estimated_kg: float, waste_type: str, fill_lev
     else:
         priority = "low"
 
-    return severity_score, env_impact, priority
+    return severity_score, env_impact, priority, alerts
 
 
 # ---------------------------------------------------------------------------
 # Fallback: deterministic heuristic (no model or API required)
 # ---------------------------------------------------------------------------
 
-def _fallback_inference(base64_str: str) -> AnalysisResult:
+def _fallback_inference(
+    base64_str: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> AnalysisResult:
     """
     Deterministic heuristic fallback path when both local model and
-    cloud API are unavailable.  Uses image byte size and hash prefix to
+    cloud API are unavailable. Uses image byte size and hash prefix to
     assign a realistic weight category so different images yield varied results.
     """
     logger.info("[Predictor] Executing fallback_inference path")
@@ -135,7 +191,9 @@ def _fallback_inference(base64_str: str) -> AnalysisResult:
     else:
         estimated_kg = round(150.0 + (val % 10500) / 10.0, 1)   # 150–1200 kg
 
-    severity_score, env_impact, priority = _calculate_scores_from_weight(estimated_kg, waste_type, fill_level)
+    severity_score, env_impact, priority, alerts = _calculate_scores_from_weight(
+        estimated_kg, waste_type, fill_level, landmark_type, odor_level, is_drain_blocked, is_road_blocked
+    )
 
     actions = {
         "organic":    f"Dispatch a 2-person compactor truck to collect ~{estimated_kg} kg of organic waste. Divert load to nearest municipal composting facility.",
@@ -144,6 +202,10 @@ def _fallback_inference(base64_str: str) -> AnalysisResult:
         "general":    f"Route standard municipal sanitation truck to clear ~{estimated_kg} kg of general solid waste. Transport to landfill or transfer station.",
     }
 
+    base_action = actions.get(waste_type, f"Schedule municipal collection team for ~{estimated_kg} kg of waste.")
+    if alerts:
+        base_action += f" Directives: {'; '.join(alerts)}."
+
     return AnalysisResult(
         waste_type=waste_type,
         fill_level=fill_level,
@@ -151,7 +213,7 @@ def _fallback_inference(base64_str: str) -> AnalysisResult:
         severity_score=severity_score,
         environmental_impact_score=env_impact,
         priority_level=priority,
-        recommended_action=actions.get(waste_type, f"Schedule municipal collection team for ~{estimated_kg} kg of waste."),
+        recommended_action=base_action,
         source="fallback",
     )
 
@@ -161,7 +223,13 @@ def _fallback_inference(base64_str: str) -> AnalysisResult:
 # Main entry point
 # ---------------------------------------------------------------------------
 
-async def analyze_waste_image(image_base64: str) -> AnalysisResult:
+async def analyze_waste_image(
+    image_base64: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> AnalysisResult:
     settings = get_settings()
 
     # ── Local model path ─────────────────────────────────────────────────────
@@ -169,7 +237,13 @@ async def analyze_waste_image(image_base64: str) -> AnalysisResult:
         try:
             from ml.local_model import predict_from_base64
             logger.info("[Predictor] USE_LOCAL_MODEL=true — routing to local greenvision.pt")
-            result = predict_from_base64(image_base64)
+            result = predict_from_base64(
+                image_base64,
+                landmark_type=landmark_type,
+                odor_level=odor_level,
+                is_drain_blocked=is_drain_blocked,
+                is_road_blocked=is_road_blocked,
+            )
             return AnalysisResult(**result)
         except Exception as exc:
             logger.error(
@@ -179,13 +253,25 @@ async def analyze_waste_image(image_base64: str) -> AnalysisResult:
             )
 
     # ── Cloud vision API path ─────────────────────────────────────────────────
-    cloud_result = await _cloud_vision_predict(image_base64)
+    cloud_result = await _cloud_vision_predict(
+        image_base64,
+        landmark_type=landmark_type,
+        odor_level=odor_level,
+        is_drain_blocked=is_drain_blocked,
+        is_road_blocked=is_road_blocked,
+    )
     if cloud_result is not None:
         return cloud_result
 
     # ── Heuristic fallback ────────────────────────────────────────────────────
     logger.info("[Predictor] All model paths exhausted. Using deterministic heuristic fallback.")
-    return _fallback_inference(image_base64)
+    return _fallback_inference(
+        image_base64,
+        landmark_type=landmark_type,
+        odor_level=odor_level,
+        is_drain_blocked=is_drain_blocked,
+        is_road_blocked=is_road_blocked,
+    )
 
 
 
@@ -194,7 +280,13 @@ async def analyze_waste_image(image_base64: str) -> AnalysisResult:
 # Cloud vision API call (private helper)
 # ---------------------------------------------------------------------------
 
-async def _cloud_vision_predict(image_base64: str) -> AnalysisResult | None:
+async def _cloud_vision_predict(
+    image_base64: str,
+    landmark_type: str = "general",
+    odor_level: str = "normal",
+    is_drain_blocked: bool = False,
+    is_road_blocked: bool = False,
+) -> AnalysisResult | None:
     """Call the cloud vision API for waste classification.
     Returns AnalysisResult on success, None on failure."""
     settings = get_settings()
@@ -289,9 +381,21 @@ async def _cloud_vision_predict(image_base64: str) -> AnalysisResult | None:
         fill_level = _sanitize_fill_level(vision_output.fill_level)
         estimated_waste_kg = round(max(0.1, float(vision_output.estimated_waste_kg)), 1)
 
-        severity_score, env_impact, final_priority = _calculate_scores_from_weight(
-            estimated_waste_kg, waste_type, fill_level
+        severity_score, env_impact, final_priority, alerts = _calculate_scores_from_weight(
+            estimated_waste_kg,
+            waste_type,
+            fill_level,
+            landmark_type=landmark_type,
+            odor_level=odor_level,
+            is_drain_blocked=is_drain_blocked,
+            is_road_blocked=is_road_blocked,
         )
+
+        final_action = vision_output.recommended_action or (
+            f"Dispatch municipal team to collect ~{estimated_waste_kg} kg of waste."
+        )
+        if alerts:
+            final_action += f" Directives: {'; '.join(alerts)}."
 
         return AnalysisResult(
             waste_type=waste_type,
@@ -300,9 +404,7 @@ async def _cloud_vision_predict(image_base64: str) -> AnalysisResult | None:
             severity_score=severity_score,
             environmental_impact_score=env_impact,
             priority_level=final_priority,
-            recommended_action=vision_output.recommended_action or (
-                f"Dispatch municipal team to collect ~{estimated_waste_kg} kg of waste."
-            ),
+            recommended_action=final_action,
             source="cloud",
         )
 

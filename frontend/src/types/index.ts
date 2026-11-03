@@ -37,6 +37,14 @@ export interface WasteReport {
   recommended_action: string;
   status: ReportStatus;
   hidden_for?: string | null;
+  landmark_type?: string;
+  odor_level?: string;
+  is_drain_blocked?: boolean;
+  is_road_blocked?: boolean;
+  is_escalated?: boolean;
+  escalation_reason?: string | null;
+  reporter_name?: string;
+  reporter_email?: string;
   created_at?: string;
   updated_at?: string;
 }
