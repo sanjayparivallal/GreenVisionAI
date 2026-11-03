@@ -109,8 +109,17 @@ const ThreadedTicket: React.FC<{
           disabled={isPending || !replyText.trim()}
           className="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 text-xs font-bold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
         >
-          <Send className="w-3.5 h-3.5" />
-          Post Response &amp; Mark Resolved
+          {isPending ? (
+            <>
+              <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+              <span>Sending...</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5" />
+              <span>Post Response &amp; Mark Resolved</span>
+            </>
+          )}
         </button>
       </div>
     )}
@@ -222,8 +231,17 @@ export const FeedbackPage: React.FC = () => {
             disabled={submitMutation.isPending || !subject || !message}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-extrabold text-xs shadow-lg hover:brightness-110 disabled:opacity-50 flex items-center gap-2"
           >
-            <Send className="w-3.5 h-3.5" />
-            Submit Municipal Ticket
+            {submitMutation.isPending ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                <span>Submitting Ticket...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit Municipal Ticket</span>
+              </>
+            )}
           </button>
         </form>
       )}

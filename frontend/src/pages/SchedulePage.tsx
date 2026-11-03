@@ -292,10 +292,17 @@ export const SchedulePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => createMutation.mutate()}
-                disabled={!zoneName || !collectionDate}
-                className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-extrabold hover:brightness-110"
+                disabled={!zoneName || !collectionDate || createMutation.isPending}
+                className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-extrabold hover:brightness-110 disabled:opacity-50 flex items-center gap-1.5"
               >
-                Save Entry
+                {createMutation.isPending ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  'Save Entry'
+                )}
               </button>
             </div>
           </div>

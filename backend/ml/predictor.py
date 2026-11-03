@@ -316,7 +316,7 @@ async def _cloud_vision_predict(
         clean_b64 = re.sub(r"\s+", "", clean_b64)
         img_data = base64.b64decode(clean_b64)
 
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={"timeout": 15000})
 
         prompt = (
             "You are GreenVision AI, an advanced municipal waste-monitoring vision AI.\n"

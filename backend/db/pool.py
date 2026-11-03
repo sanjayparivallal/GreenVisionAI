@@ -33,7 +33,7 @@ async def init_pool() -> None:
                 max_inactive_connection_lifetime=60.0,
             )
             async with _pool.acquire() as conn:
-                # Run schema and migrations
+                # Run schema migrations and performance indexes idempotently
                 await conn.execute("""
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS hidden_for TEXT DEFAULT NULL;
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS estimated_waste_kg REAL DEFAULT 0.0;
@@ -43,8 +43,17 @@ async def init_pool() -> None:
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_road_blocked BOOLEAN DEFAULT FALSE;
                     ALTER TABLE reports ADD COLUMN IF NOT EXISTS escalation_reason TEXT DEFAULT NULL;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image TEXT DEFAULT '';
+
+                    -- Performance indexes auto-applied on startup
+                    CREATE INDEX IF NOT EXISTS idx_reports_priority_level ON reports(priority_level);
+                    CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+                    CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_reports_landmark_type ON reports(landmark_type);
+                    CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports(status, created_at DESC);
+                    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+                    CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
                 """)
-            logger.info("[DB Pool] Connection pool initialized successfully.")
+            logger.info("[DB Pool] Connection pool initialized and performance indexes verified.")
             return
         except Exception as exc:
             logger.warning(

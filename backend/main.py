@@ -63,6 +63,18 @@ app = FastAPI(
 
 
 # ---------------------------------------------------------------------------
+# Global Exception Handler (Never leak stack traces or internal DB info)
+# ---------------------------------------------------------------------------
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("[UnhandledException] %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected internal server error occurred. Please try again later."},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Security Headers Middleware
 # ---------------------------------------------------------------------------
 @app.middleware("http")
@@ -141,24 +153,20 @@ app.include_router(stats.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
-# Health check endpoints
+# Health check endpoints — both /health and /api/health probe DB connectivity
 # ---------------------------------------------------------------------------
 @app.get("/health")
-async def health():
-    return {"status": "ok", "service": "GreenVision AI Backend"}
-
-
 @app.get("/api/health")
-async def api_health():
-    """Detailed health check with DB connectivity probe."""
+async def health_check():
+    """Health check endpoint with database connectivity probe."""
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
         return {"status": "ok", "database": "connected", "service": "GreenVision AI Backend"}
     except Exception as exc:
-        logger.error("[HealthCheck] DB check failed: %s", exc)
+        logger.error("[HealthCheck] DB probe failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"status": "degraded", "database": "unreachable", "detail": str(exc)},
+            content={"status": "degraded", "database": "unreachable", "detail": "Database connection unavailable"},
         )

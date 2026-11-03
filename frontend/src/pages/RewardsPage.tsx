@@ -183,13 +183,22 @@ export const RewardsPage: React.FC = () => {
                     type="button"
                     onClick={() => redeemMutation.mutate({ title: item.title, pts: item.pts })}
                     disabled={!canAfford || redeemMutation.isPending}
-                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all ${
+                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all ${
                       canAfford
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md hover:brightness-110'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md hover:brightness-110 disabled:opacity-60'
                         : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                     }`}
                   >
-                    {canAfford ? 'Redeem Voucher' : 'Insufficient Points'}
+                    {redeemMutation.isPending ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                        <span>Redeeming...</span>
+                      </>
+                    ) : canAfford ? (
+                      'Redeem Voucher'
+                    ) : (
+                      'Insufficient Points'
+                    )}
                   </button>
                 </div>
               </div>
@@ -205,7 +214,13 @@ export const RewardsPage: React.FC = () => {
           Rewards Transaction Ledger
         </h3>
 
-        {history.length === 0 ? (
+        {isLoadingHistory ? (
+          <div className="space-y-3 p-4">
+            <div className="h-10 bg-slate-800 rounded-xl animate-pulse" />
+            <div className="h-10 bg-slate-800 rounded-xl animate-pulse" />
+            <div className="h-10 bg-slate-800 rounded-xl animate-pulse" />
+          </div>
+        ) : history.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400 bg-slate-800/40 rounded-2xl">
             No transaction records found yet. Submit waste reports to start earning points!
           </div>

@@ -158,7 +158,12 @@ export const ReportFlowPage: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h);
-          setImageBase64(canvas.toDataURL('image/jpeg', 0.75));
+          // Prefer modern WebP format if supported, fallback to JPEG
+          let compressed = canvas.toDataURL('image/webp', 0.8);
+          if (!compressed.startsWith('data:image/webp')) {
+            compressed = canvas.toDataURL('image/jpeg', 0.8);
+          }
+          setImageBase64(compressed);
         } else {
           setImageBase64(event.target?.result as string);
         }

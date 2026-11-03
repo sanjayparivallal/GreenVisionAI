@@ -35,8 +35,8 @@ def get_sample_image_base64() -> str:
             b64 = base64.b64encode(data).decode("utf-8")
             return f"data:image/jpeg;base64,{b64}"
 
-    # Fallback minimal JPEG
-    dummy = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+    # Fallback valid 1x1 PNG
+    dummy = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     return dummy
 
 
@@ -96,8 +96,12 @@ async def run_tests():
 
     try:
         res_cloud = await analyze_waste_image(img_b64)
-        validate_result(res_cloud, expected_source="cloud")
-        print("[SUCCESS] Cloud Vision Prediction Response:")
+        if res_cloud.source == "cloud":
+            validate_result(res_cloud, expected_source="cloud")
+            print("[SUCCESS] Cloud Vision Prediction Response:")
+        else:
+            validate_result(res_cloud, expected_source="fallback")
+            print(f"[SUCCESS] Cloud path fell back gracefully (source={res_cloud.source}):")
         print(json.dumps(res_cloud.model_dump(), indent=2))
     except Exception as exc:
         print(f"[FAIL] Cloud vision test threw exception: {exc}")

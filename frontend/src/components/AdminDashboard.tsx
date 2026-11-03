@@ -4,7 +4,8 @@ import { apiClient } from '../api/client';
 import { organicApi } from '../api/organic';
 import { WasteReport, CollectionSchedule, OrganicWasteRecord, FeedbackTicket } from '../types';
 import { ProgressiveImage } from './ProgressiveImage';
-import { TableRowSkeleton, StatsWidgetSkeleton } from './Skeletons';
+import { TableRowSkeleton, StatsWidgetSkeleton, ScheduleCardSkeleton } from './Skeletons';
+import { useDebounce } from '../hooks/useDebounce';
 import toast from 'react-hot-toast';
 import { reportsApi } from '../api/reports';
 import {
@@ -154,10 +155,12 @@ export const AdminDashboard: React.FC = () => {
   });
 
   const [searchReport, setSearchReport] = useState<string>('');
+  const debouncedSearchReport = useDebounce(searchReport, 250);
+  const debouncedOrganicSearch = useDebounce(organicSearch, 250);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const filteredOrganicRecords = organicRecords.filter((org) => {
-    const matchesSearch = org.distributed_to.toLowerCase().includes(organicSearch.toLowerCase());
+    const matchesSearch = org.distributed_to.toLowerCase().includes(debouncedOrganicSearch.toLowerCase());
     const matchesStatus = organicFilterStatus === 'all' || org.status.toLowerCase() === organicFilterStatus.toLowerCase();
     return matchesSearch && matchesStatus;
   });
@@ -169,8 +172,8 @@ export const AdminDashboard: React.FC = () => {
     .filter((r) => filterPriority === 'all' || r.priority_level === filterPriority)
     .filter((r) => filterStatus === 'all' || r.status === filterStatus)
     .filter((r) => {
-      if (!searchReport.trim()) return true;
-      const q = searchReport.toLowerCase();
+      if (!debouncedSearchReport.trim()) return true;
+      const q = debouncedSearchReport.toLowerCase();
       return (
         r.location_text?.toLowerCase().includes(q) ||
         r.reporter_name?.toLowerCase().includes(q) ||
@@ -481,18 +484,38 @@ export const AdminDashboard: React.FC = () => {
                               type="button"
                               onClick={() => approveMutation.mutate(report.id)}
                               disabled={approveMutation.isPending}
-                              className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-900/30 hover:brightness-110 flex items-center gap-1.5 transition-all"
+                              className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-900/30 hover:brightness-110 disabled:opacity-50 flex items-center gap-1.5 transition-all"
                             >
-                              <CheckCircle2 className="w-4 h-4" /> Approve &amp; Award Points
+                              {approveMutation.isPending ? (
+                                <>
+                                  <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                                  <span>Approving...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span>Approve &amp; Award Points</span>
+                                </>
+                              )}
                             </button>
 
                             <button
                               type="button"
                               onClick={() => rejectMutation.mutate(report.id)}
                               disabled={rejectMutation.isPending}
-                              className="px-3 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 font-bold text-xs flex items-center gap-1 transition-all"
+                              className="px-3 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 font-bold text-xs disabled:opacity-50 flex items-center gap-1 transition-all"
                             >
-                              <XCircle className="w-4 h-4" /> Reject
+                              {rejectMutation.isPending ? (
+                                <>
+                                  <div className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                                  <span>Rejecting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4" />
+                                  <span>Reject</span>
+                                </>
+                              )}
                             </button>
                           </>
                         )}
@@ -502,8 +525,9 @@ export const AdminDashboard: React.FC = () => {
                             <span className="text-xs font-semibold text-slate-400">Update Status:</span>
                             <select
                               value={report.status}
+                              disabled={statusMutation.isPending}
                               onChange={(e) => statusMutation.mutate({ id: report.id, status: e.target.value })}
-                              className="bg-slate-800 text-xs font-bold text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl outline-none"
+                              className="bg-slate-800 text-xs font-bold text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl outline-none disabled:opacity-50"
                             >
                               <option value="approved">Approved</option>
                               <option value="in_progress">In Progress</option>
@@ -535,17 +559,28 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {schedules.map((s) => (
-              <div key={s.id} className="p-3.5 bg-slate-800/60 rounded-2xl border border-slate-700/50 flex items-center justify-between">
-                <div>
-                  <h5 className="text-xs font-bold text-slate-200">{s.zone_name}</h5>
-                  <p className="text-[11px] text-teal-400">{s.waste_type} &bull; {s.collection_date}</p>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-200 capitalize">
-                  {s.status}
-                </span>
+            {isLoadingSchedules ? (
+              <>
+                <ScheduleCardSkeleton />
+                <ScheduleCardSkeleton />
+              </>
+            ) : schedules.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-slate-800/30 rounded-xl">
+                No active municipal collection schedules posted.
               </div>
-            ))}
+            ) : (
+              schedules.map((s) => (
+                <div key={s.id} className="p-3.5 bg-slate-800/60 rounded-2xl border border-slate-700/50 flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-200">{s.zone_name}</h5>
+                    <p className="text-[11px] text-teal-400">{s.waste_type} &bull; {s.collection_date}</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-200 capitalize">
+                    {s.status}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

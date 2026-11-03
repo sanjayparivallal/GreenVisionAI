@@ -10,41 +10,41 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 # ---------------------------------------------------------------------------
 
 class ResidentSignupRequest(BaseModel):
-    name: str = Field(..., min_length=2)
+    name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    password: str = Field(..., min_length=6)
-    phone: Optional[str] = None
-    address: Optional[str] = None
+    password: str = Field(..., min_length=6, max_length=128)
+    phone: Optional[str] = Field(None, max_length=30)
+    address: Optional[str] = Field(None, max_length=300)
 
 
 class AdminSignupRequest(BaseModel):
-    name: str = Field(..., min_length=2)
+    name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    password: str = Field(..., min_length=6)
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    admin_code: Optional[str] = None
+    password: str = Field(..., min_length=6, max_length=128)
+    phone: Optional[str] = Field(None, max_length=30)
+    address: Optional[str] = Field(None, max_length=300)
+    admin_code: Optional[str] = Field(None, max_length=100)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., max_length=128)
 
 
 class RefreshRequest(BaseModel):
-    refreshToken: str
+    refreshToken: str = Field(..., min_length=10)
 
 
 class UpdateProfileRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=2)
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    profile_image: Optional[str] = None  # base64 encoded image
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    phone: Optional[str] = Field(None, max_length=30)
+    address: Optional[str] = Field(None, max_length=300)
+    profile_image: Optional[str] = None  # base64 encoded image, validated in endpoint
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str = Field(..., min_length=6)
+    current_password: str = Field(..., max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class UserOut(BaseModel):
@@ -76,12 +76,12 @@ class AuthResponse(BaseModel):
 class CreateReportRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    image_base64: str
-    location_text: str
-    latitude: Optional[float] = 0.0
-    longitude: Optional[float] = 0.0
-    landmark_type: Optional[str] = "general"
-    odor_level: Optional[str] = "normal"
+    image_base64: str = Field(..., min_length=20)
+    location_text: str = Field(..., min_length=2, max_length=500)
+    latitude: Optional[float] = Field(0.0, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(0.0, ge=-180.0, le=180.0)
+    landmark_type: Optional[str] = Field("general", max_length=50)
+    odor_level: Optional[str] = Field("normal", max_length=20)
     is_drain_blocked: Optional[bool] = False
     is_road_blocked: Optional[bool] = False
 
@@ -95,9 +95,9 @@ class UpdateStatusRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateScheduleRequest(BaseModel):
-    zone_name: str
-    waste_type: str
-    collection_date: str
+    zone_name: str = Field(..., min_length=2, max_length=100)
+    waste_type: str = Field(..., min_length=2, max_length=100)
+    collection_date: str = Field(..., min_length=4, max_length=100)
     status: Literal["scheduled", "completed", "delayed"] = "scheduled"
 
 
@@ -110,8 +110,8 @@ class UpdateScheduleRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RedeemRequest(BaseModel):
-    reward_title: str
-    points_required: int = Field(..., gt=0)
+    reward_title: str = Field(..., min_length=2, max_length=200)
+    points_required: int = Field(..., gt=0, le=100000)
 
 
 # ---------------------------------------------------------------------------
@@ -119,12 +119,12 @@ class RedeemRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateFeedbackRequest(BaseModel):
-    subject: str = Field(..., min_length=3)
-    message: str = Field(..., min_length=5)
+    subject: str = Field(..., min_length=3, max_length=200)
+    message: str = Field(..., min_length=5, max_length=4000)
 
 
 class RespondFeedbackRequest(BaseModel):
-    admin_response: str
+    admin_response: str = Field(..., min_length=2, max_length=4000)
     status: Literal["open", "in_progress", "resolved"] = "resolved"
 
 
@@ -134,14 +134,14 @@ class RespondFeedbackRequest(BaseModel):
 
 class CreateOrganicRequest(BaseModel):
     report_id: Optional[str] = None
-    quantity_kg: float = Field(..., gt=0)
-    distributed_to: str
-    distribution_date: str
-    status: str = "Compost In-Transit"
+    quantity_kg: float = Field(..., gt=0, le=1000000)
+    distributed_to: str = Field(..., min_length=2, max_length=200)
+    distribution_date: str = Field(..., min_length=4, max_length=100)
+    status: str = Field("Compost In-Transit", max_length=100)
 
 
 class UpdateOrganicRequest(BaseModel):
-    status: str
+    status: str = Field(..., max_length=100)
 
 
 # ---------------------------------------------------------------------------
@@ -149,19 +149,19 @@ class UpdateOrganicRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateOrganicListingRequest(BaseModel):
-    total_kg: float = Field(..., gt=0)
-    description: str = Field(..., min_length=3)
-    waste_type: str = "general"
-    pickup_location: str = ""
-    available_until: Optional[datetime] = None   # ISO datetime object
-    image_base64: str = ""
+    total_kg: float = Field(..., gt=0, le=1000000)
+    description: str = Field(..., min_length=3, max_length=2000)
+    waste_type: str = Field("general", max_length=50)
+    pickup_location: str = Field("", max_length=500)
+    available_until: Optional[datetime] = None
+    image_base64: str = Field("", max_length=20000000)
 
 
 class CreateOrganicRequestBody(BaseModel):
-    requested_kg: float = Field(..., gt=0)
-    contact_info: str = Field(..., min_length=3)
+    requested_kg: float = Field(..., gt=0, le=1000000)
+    contact_info: str = Field(..., min_length=3, max_length=300)
 
 
 class UpdateOrganicRequestStatus(BaseModel):
     status: Literal["approved", "rejected", "completed"]
-    admin_note: Optional[str] = None
+    admin_note: Optional[str] = Field(None, max_length=1000)
