@@ -66,8 +66,11 @@ Open `http://localhost:5173` in your browser.
 
 ---
 
-## Team & Project Context
-- **Candidate:** Sanjay C P
+## Team Members & Project Context
+- **Team Members:**
+  - **Sanjay C P** (Reg No: 61782323106096)
+  - **Ranjini P** (Reg No: 61782323106096)
+  - **Saniya Gayathri S** (Reg No: 61782323106094)
 - **Department:** Information Technology / Artificial Intelligence & Data Science
 - **Institution:** Sona College of Technology
 - **Submission:** Final Year Mini Project / StartupFair Hackathon
